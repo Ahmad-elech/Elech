@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>⚡ الحاسبة الكهربائية المتعددة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--accent:#4a6ee0;--accent-light:#7f93ff;--bg:#f2f5ff;--card-bg:#ffffff;--text:#333;--result:#d62828}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Cairo",system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);min-height:100vh;color:var(--text);display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,var(--accent),var(--accent-light));color:#fff;padding:1.2rem;text-align:center;font-size:1.55rem;font-weight:700;letter-spacing:.02em;box-shadow:0 4px 12px rgba(0,0,0,.15);position:sticky;top:0;z-index:10}
+main{flex:1;padding:1.2rem .8rem;max-width:900px;width:100%;margin:auto;animation:fadeIn .7s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+label{font-weight:600;margin-bottom:.4rem;display:block;font-size:1.05rem}
+select,input{width:100%;padding:.6rem .7rem;margin-bottom:.9rem;font-size:1rem;border:1px solid #ccd2ff;border-radius:8px;outline:none;transition:border-color .2s,box-shadow .2s}
+select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,110,224,.22)}
+button{width:100%;padding:.85rem;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-light));color:#fff;font-size:1.05rem;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s}
+button:hover{transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,.15)}
+.calc-box{background:var(--card-bg);padding:1.2rem 1.3rem 1.8rem;margin-top:1.2rem;border-radius:14px;box-shadow:0 6px 16px rgba(0,0,0,.08);animation:fadeInCard .5s}
+@keyframes fadeInCard{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.result{font-size:1.3rem;font-weight:700;color:var(--result);margin-top:.9rem;text-align:center;word-break:break-word}
+footer{text-align:center;font-size:.8rem;color:#666;padding:1rem 0}
+canvas{display:block;width:100%;height:auto;max-width:100%;border:1px solid #e0e4ff;border-radius:10px;background:#fff;margin:1rem auto}
+.slider-box{display:flex;align-items:center;gap:.6rem;margin-top:.4rem}
+.slider-box input[type=range]{flex:1}
+.row-flex{display:flex;gap:.8rem;flex-wrap:wrap}
+.row-flex>div{flex:1 1 160px}
+@media(max-width:480px){header{font-size:1.4rem}label{font-size:1rem}main{padding:1rem .6rem}.result{font-size:1.15rem}}
+</style>
+</head>
+<body>
+<header>⚡ الحاسبة الكهربائية</header>
+<main>
+<label for="calcSelect">اختر العملية الحسابية:</label>
+<select id="calcSelect"><option value="">-- اختر --</option></select>
+<div id="calcContainer"></div>
+</main>
+<footer>© 2025 مُبدع بسيط</footer>
+<script>
+const SQRT3=Math.sqrt(3);
+/* ================= قائمة العمليات ================= */
+const calculators=[
+  {id:'power_triangle',name:' مثلّث القدرة التفاعلي',special:'triangle'},
+  {id:'single_current',name:' تيار طور واحد',inputs:[{id:'p',label:'P (W)'},{id:'v',label:'V (V)'},{id:'pf',label:'cosφ',step:'0.01',value:'0.8'}],compute:v=>({I:v.p/(v.v*v.pf)})},
+  {id:'three_current',name:' تيار ثلاثي الطور',inputs:[{id:'p',label:'P (W)'},{id:'v',label:'V_L (V)'},{id:'pf',label:'cosφ',step:'0.01',value:'0.8'}],compute:v=>({I:v.p/(SQRT3*v.v*v.pf)})},
+  {id:'single_power',name:' قدرة طور واحد',inputs:[{id:'v',label:'V (V)'},{id:'i',label:'I (A)'},{id:'pf',label:'cosφ',step:'0.01',value:'0.8'}],compute:v=>({P:v.v*v.i*v.pf})},
+  {id:'three_power',name:' قدرة ثلاثي الطور',inputs:[{id:'v',label:'V_L (V)'},{id:'i',label:'I_L (A)'},{id:'pf',label:'cosφ',step:'0.01',value:'0.8'}],compute:v=>({P:SQRT3*v.v*v.i*v.pf})},
+  {id:'unit_conv',name:' محول الوحدات',special:'converter'}
+];
+/* =============== تعبئة القائمة =============== */
+const sel=document.getElementById('calcSelect');calculators.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o)});
+const container=document.getElementById('calcContainer');let current=null;
+sel.addEventListener('change',()=>{container.innerHTML='';current=calculators.find(c=>c.id===sel.value);if(!current)return;switch(current.special){case 'triangle':triangleUI();break;case 'converter':converterUI();break;default:standardUI();}});
+/* ---------- واجهة العمليات القياسية ---------- */
+function standardUI(){const box=makeBox();current.inputs.forEach(inp=>{addInput(box,inp.label,inp.id,inp.step,inp.value)});const btn=createButton('احسب');box.appendChild(btn);const res=makeResult(box);btn.onclick=()=>{const vals={};current.inputs.forEach(i=>vals[i.id]=parseFloat(document.getElementById(i.id).value));if(Object.values(vals).some(isNaN)){res.textContent='أدخل القيم كلها';return;}const out=current.compute(vals);const k=Object.keys(out)[0];res.textContent=`${k} = ${out[k].toFixed(3)}`;};}
+/* ---------- واجهة المثلث ---------- */
+function triangleUI(){const box=makeBox();/* اختيار القدرة */const rowPow=createRow();addSelect(rowPow,'نوع القدرة','powType',[['P','P (W)'],['S','S (VA)'],['Q','Q (VAR)']]);addInput(rowPow,'القيمة','powVal');box.appendChild(rowPow);/* النظام والجهد */const rowSys=createRow();addSelect(rowSys,'النظام','sysSel',[['single','طور واحد'],['three','ثلاثي الطور']]);addInput(rowSys,'الجهد V','vVal');box.appendChild(rowSys);/* PF slider */const pfWrap=document.createElement('div');pfWrap.className='slider-box';pfWrap.innerHTML='<label style="min-width:50px">cosφ</label><input id="pf" type="range" min="0.1" max="1" step="0.01" value="0.8"><span id="pfVal" style="font-weight:700">0.80</span>';pfWrap.querySelector('#pf').oninput=e=>pfWrap.querySelector('#pfVal').textContent=parseFloat(e.target.value).toFixed(2);box.appendChild(pfWrap);/* canvas */const can=document.createElement('canvas');can.width=360;can.height=240;can.id='triCan';box.appendChild(can);const res=makeResult(box);const save=createButton('💾 احفظ الرسم');save.style.marginTop='1rem';save.onclick=()=>{const a=document.createElement('a');a.download='triangle.png';a.href=can.toDataURL();a.click();};box.appendChild(save);container.appendChild(box);['input','change'].forEach(ev=>box.addEventListener(ev,update));update();function update(){const type=document.getElementById('powType').value;const val=parseFloat(document.getElementById('powVal').value);const V=parseFloat(document.getElementById('vVal').value);const pf=parseFloat(document.getElementById('pf').value);if([val,V].some(x=>isNaN(x)||x<=0)){clear(can);res.textContent='أدخل قيم صحيحة';return;}let P,S,Q;if(type==='P'){P=val;S=P/pf;Q=Math.sqrt(S*S-P*P);}else if(type==='S'){S=val;P=S*pf;Q=Math.sqrt(S*S-P*P);}else{Q=val;S=Q/Math.sqrt(1-pf*pf);P=S*pf;}const sys=document.getElementById('sysSel').value;const I=sys==='single'?P/(V*pf):P/(3*V*pf);draw(can,P,Q,S);res.textContent=`P=${P.toFixed(2)} W | Q=${Q.toFixed(2)} VAR | S=${S.toFixed(2)} VA | I=${I.toFixed(2)} A`;}}
+/* ---------- محول الوحدات ---------- */
+function converterUI(){const box=makeBox();const list=[{t:'W → kW',f:0.001},{t:'kW → W',f:1000},{t:'kW → hp',f:1.341},{t:'hp → kW',f:0.746}];addSelect(box,'نوع التحويل','convSel',list.map((c,i)=>[i,c.t]));addInput(box,'القيمة','convVal');const btn=createButton('حوّل');box.appendChild(btn);const res=makeResult(box);btn.onclick=()=>{const idx=parseInt(document.getElementById('convSel').value);const v=parseFloat(document.getElementById('convVal').value);if(isNaN(v)){res.textContent='أدخل قيمة';return;}res.textContent=`النتيجة = ${(v*list[idx].f).toFixed(3)}`;};}
+/* ======= أدوات مساعدة ======= */
+function makeBox(){const d=document.createElement('div');d.className='calc-box';container.appendChild(d);return d;}
+function createRow(){const r=document.createElement('div');r.className='row-flex';return r;}
+function addInput(parent,labelTxt,id,step,val){const lbl=document.createElement('label');lbl.textContent=labelTxt;const inp=document.createElement('input');inp.type='number';inp.step=step||'any';inp.id=id;if(val)inp.value=val;parent.appendChild(lbl);parent.appendChild(inp);} 
+function addSelect(parent,labelTxt,id,opts){const lbl=document.createElement('label');lbl.textContent=labelTxt;const sel=document.createElement('select');sel.id=id;opts.forEach(o=>{const op=document.createElement('option');op.value=o[0];op.textContent=o[1];sel.appendChild(op);});parent.appendChild(lbl);parent.appendChild(sel);} 
+function createButton(txt){const b=document.createElement('button');b.textContent=txt;return b;}
+function makeResult(box){const d=document.createElement('div');d.className='result';box.appendChild(d);return d;}
+function clear(c){c.getContext('2d').clearRect(0,0,c.width,c.height);} 
+function draw(c,P,Q,S){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);const m=40;const scale=(c.width-m*2)/S;const o={x:m,y:c.height-m};const Px=o.x+P*scale;const Qy=o.y-Q*scale;ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(Px,o.y);ctx.lineTo(Px,Qy);ctx.closePath();ctx.fillStyle='rgba(127,147,255,.12)';ctx.fill();ctx.strokeStyle='#4a6ee0';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#000';ctx.font='13px Cairo';ctx.fillText('P',(o.x+Px)/2-10,o.y+18);ctx.fillText('Q',Px+6,(o.y+Qy)/2);ctx.fillText('S',(o.x+Px)/2-10,(o.y+Qy)/2);ctx.strokeStyle='#aaa';ctx.beginPath();ctx.moveTo(o.x,10);ctx.lineTo(o.x,o.y);ctx.lineTo(c.width-10,o.y);ctx.stroke();}
+</script>
+</body>
+</html>
